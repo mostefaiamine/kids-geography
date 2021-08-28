@@ -1,0 +1,212 @@
+﻿@inject IJSRuntime jsr
+
+<div class="row">
+    <div class="col-7">
+        @if (Started)
+        {
+            <div class="question-status">
+                @CurrentGroupName - Question @(CurrentQuestion)
+            </div>
+        }
+        <div class="question-container">
+            @if (IsQuestionLoading)
+            {
+                <div class="loader">
+                    <img src="/images/globe.gif" />
+                </div>
+            }
+            @for (var i = 0; i < Groups.Count; i++)
+            {
+                var group = Groups[i];
+                <div class="question-item group @(group.Done?"question-reset":"")" id="group-@i">
+                    <span> @group.Name</span>
+                </div>
+                for (var j = 0; j < group.Questions.Count; j++)
+                {
+                    var question = group.Questions[j];
+                    <div class="question-item question question-@(j%5) @(question.Done?"question-reset":"")" id="question-@i-@j">
+                        <span>@question.Text</span>
+                    </div>
+                }
+            }
+        </div>
+        @if (!Started)
+        {
+            <div class="button-container">
+                <button class="btn btn-primary" @onclick="Start">Start</button>
+            </div>
+        }
+
+        @if ((ShowingQuestions) && (!IsDone))
+        {
+            <div class="row button-container">
+                <div class="col-6">
+                    <button class="btn btn-primary" @onclick="SayYes">Yes</button>
+                </div>
+                <div class="col-6" style="text-align: right">
+                    <button class="btn btn-danger" @onclick="SayNo">No</button>
+                </div>
+            </div>
+        }
+    </div>
+
+
+    <div class="col-5">
+        <div class="col-12">
+            <div class="score">
+                @string.Format("{0:0.00} %", Result.Result)
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="row">
+                <div class="col-12">
+                    <div class=" image-holder">
+                        @for (var i = 0; i < Result.YesCount; i++)
+                        {
+
+                            <img src="/images/success.png" />
+                        }
+                    </div>
+                </div>
+                <div class="col-12 ">
+                    <div class="image-holder">
+                        @for (var i = 0; i < Result.NoCount; i++)
+                        {
+
+                            <img src="/images/failure.png" />
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@code {
+
+    /// <summary>
+    /// Current group
+    /// </summary>
+    public int CurrentGroup { get; set; } = 0;
+
+    public string CurrentGroupName { get; set; }
+
+    /// <summary>
+    /// current question
+    /// </summary>
+    public int CurrentQuestion { get; set; } = 0;
+
+    /// <summary>
+    /// True when we load a new question
+    /// </summary>
+    public bool IsQuestionLoading { get; set; } = false;
+
+    /// <summary>
+    /// The result
+    /// </summary>
+    public QuestionResult Result { get; set; } = new QuestionResult();
+
+    /// <summary>
+    /// indicates that we are showing questions
+    /// </summary>
+    public bool ShowingQuestions { get; set; } = false;
+
+    /// <summary>
+    /// Indicates that
+    /// </summary>
+    public bool Started { get; set; } = false;
+
+    /// <summary>
+    /// Groups
+    /// </summary>
+    [Parameter]
+    public List<QuestionGroup> Groups { get; set; }
+
+    /// <summary>
+    /// All is over
+    /// </summary>
+    public bool IsDone { get; set; } = false;
+
+    async Task Start()
+    {
+        CurrentGroup = 0;
+        Started = true;
+        await ShowGroup(CurrentGroup);
+
+    }
+
+    /// <summary>
+    /// shows a group
+    /// </summary>
+    /// <param name="groupIndex"></param>
+    /// <returns></returns>
+    async Task ShowGroup(int groupIndex)
+    {
+        ShowingQuestions = false;
+        var group = Groups[groupIndex];
+        group.Done = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        CurrentQuestion = 0;
+        CurrentGroupName = group.Name;
+        ShowingQuestions = await ShowQuestion(group);
+    }
+
+    /// <summary>
+    /// Show the current question
+    /// </summary>
+    /// <param name="group"></param>
+    /// <returns></returns>
+    async Task<bool> ShowQuestion(QuestionGroup group)
+    {
+        IsQuestionLoading = true;
+        StateHasChanged();
+        await Task.Delay(1000);
+        StateHasChanged();
+        IsQuestionLoading = false;
+        if (CurrentQuestion < group.Questions.Count)
+        {
+            group.Questions[CurrentQuestion++].Done = true;
+            return true;
+        }
+        else
+        {
+            ++CurrentGroup;
+            if (CurrentGroup < Groups.Count)
+            {
+                await ShowGroup(CurrentGroup);
+            }
+            else
+            {
+                IsDone = true;
+                await jsr.ToastrSuccess("The end !");
+            }
+        }
+        return false;
+    }
+
+    private async Task SayYes()
+    {
+        ++Result.YesCount;
+        UpdateResult();
+        var group = Groups[CurrentGroup];
+        await ShowQuestion(group);
+
+    }
+
+    private async Task SayNo()
+    {
+        ++Result.NoCount;
+        UpdateResult();
+        var group = Groups[CurrentGroup];
+        await ShowQuestion(group);
+    }
+
+    void UpdateResult()
+    {
+        Result.Result = ((double)Result.YesCount / ((double)(Result.YesCount + Result.NoCount))) * 100;
+    }
+}

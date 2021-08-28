@@ -1,0 +1,41 @@
+﻿@page "/"
+
+@inject IDataService sData
+@inject IQuestionService sQuestions
+@inject IJSRuntime jsr
+
+
+<div class="container">
+    <div class="row">
+        <div class="col-12 site-header">
+            <h1>Kids Geography Test</h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            @if (DataLoaded)
+            {
+                <QuestionVizualizer Groups="Groups" />
+            }
+        </div>
+    </div>
+
+</div>
+
+@code{
+
+    /// <summary>
+    /// question groups
+    /// </summary>
+    List<QuestionGroup> Groups { get; set; }
+
+
+    public bool DataLoaded { get; set; } = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        var data = await sData.GetData();
+        Groups = await sQuestions.BuildQuestions(data, 4, 3, 3);
+        DataLoaded = true;
+    }
+}
